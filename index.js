@@ -27,6 +27,8 @@ async function run() {
     const usersCollection = database.collection("users");
 
     // const bookingsCollection = database.collection("bookings");
+
+
     app.post("/users",async (req, res) => {
       const userInfo = req.body;
       userInfo.role = "user";
@@ -34,8 +36,17 @@ async function run() {
       const result = await usersCollection.insertOne(userInfo);
       res.send(result);
     });
-      // console.log(user);  
-  
+
+
+
+    app.get('/users/role/:email', async (req, res) => {
+      const {email} = req.params;
+
+      const query = { email: email };
+      const result = await usersCollection.findOne(query);
+      res.send(result);
+      console.log(result);
+    });
 
     await client.db("admin").command({ ping: 1 });
     console.log(
