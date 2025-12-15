@@ -25,13 +25,14 @@ async function run() {
     const database = client.db("blood-donate");
 
     const usersCollection = database.collection("users");
-
+    const requestsCollection = database.collection("requests");
     // const bookingsCollection = database.collection("bookings");
 
 
     app.post("/users",async (req, res) => {
       const userInfo = req.body;
-      userInfo.role = "user";
+      userInfo.role = "doner";
+      userInfo.status = "active";
       userInfo.createdAt = new Date();
       const result = await usersCollection.insertOne(userInfo);
       res.send(result);
@@ -47,6 +48,19 @@ async function run() {
       res.send(result);
       console.log(result);
     });
+
+// blood request ApI
+    app.post('/requests', async (req, res) => {
+      const data = req.body;
+      data.createdAt = new Date();
+      const result = await requestsCollection.insertOne(data);
+      res.send(result);
+    });
+
+
+
+
+
 
     await client.db("admin").command({ ping: 1 });
     console.log(
