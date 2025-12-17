@@ -17,7 +17,9 @@ const veryfyToken = async (req, res, next) => {
   try {
     const idToken = token.split(" ")[1];
     const decoded = await admin.auth().verifyIdToken(idToken);
+
     req.decodedEmail = decoded.email;
+    console.log("decoded info", decoded);
     next();
   } catch (err) {
     return res.status(401).send({ message: "Unauthorized access" });
@@ -56,12 +58,19 @@ async function run() {
 
     app.post("/users", async (req, res) => {
       const userInfo = req.body;
-      userInfo.role = "doner";
+      userInfo.role = "Donor";
       userInfo.status = "active";
       userInfo.createdAt = new Date();
       const result = await usersCollection.insertOne(userInfo);
       res.send(result);
     });
+
+// USer Get API
+
+app.get("/users",veryfyToken, async (req, res) => {
+  const result = await usersCollection.find().toArray();
+  res.status(200).send(result);
+})
 
     app.get("/users/role/:email", async (req, res) => {
       const { email } = req.params;
@@ -74,7 +83,7 @@ async function run() {
     // blood request ApI
     app.post("/requests",veryfyToken, async (req, res) => {
       const data = req.body;
-      
+
       data.createdAt = new Date();
       const result = await requestsCollection.insertOne(data);
       res.send(result);
