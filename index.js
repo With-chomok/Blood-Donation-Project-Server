@@ -65,7 +65,7 @@ async function run() {
       res.send(result);
     });
 
-// USer Get API
+//All USer Get API
 
 app.get("/users",veryfyToken, async (req, res) => {
   const result = await usersCollection.find().toArray();
@@ -79,7 +79,20 @@ app.get("/users",veryfyToken, async (req, res) => {
       res.send(result);
       console.log(result);
     });
+app.patch('/update/user/status', veryfyToken, async (req,res) => {
+  const {email, status} = req.query
+  const query = {email:email}
 
+  const updateStatus = {
+    $set: {
+      status: status
+    }
+  }
+
+  const result = await usersCollection.updateOne(query,updateStatus)
+  res.send(result)
+
+})
     // blood request ApI
     app.post("/requests",veryfyToken, async (req, res) => {
       const data = req.body;
