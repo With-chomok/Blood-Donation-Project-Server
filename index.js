@@ -27,9 +27,7 @@ const veryfyToken = async (req, res, next) => {
 };
 
 const admin = require("firebase-admin");
-const decoded = Buffer.from(process.env.FB_KEY, "base64").toString(
-  "utf8"
-);
+const decoded = Buffer.from(process.env.FB_KEY, "base64").toString("utf8");
 const serviceAccount = JSON.parse(decoded);
 
 admin.initializeApp({
@@ -65,12 +63,28 @@ async function run() {
       res.send(result);
     });
 
-//All USer Get API
+    //All USer Get API
 
-app.get("/users",veryfyToken, async (req, res) => {
-  const result = await usersCollection.find().toArray();
-  res.status(200).send(result);
-})
+    app.get("/users", veryfyToken, async (req, res) => {
+      const result = await usersCollection.find().toArray();
+      res.status(200).send(result);
+    });
+
+    app.get("/my-donation-requests", veryfyToken, async (req, res) => {
+      const email = req.decodedEmail;
+      const query = { requesterEmail: email };
+      const size = Number(req.query.size);
+      const page = Number(req.query.page);
+      const result = await requestsCollection
+        .find(query)
+        .limit(size)
+        .skip(size * page)
+        .toArray();
+
+      const totalRequest = await requestsCollection.countDocuments(query);
+
+      res.send({ result: result, totalRequest });
+    });
 
     app.get("/users/role/:email", async (req, res) => {
       const { email } = req.params;
@@ -79,22 +93,21 @@ app.get("/users",veryfyToken, async (req, res) => {
       res.send(result);
       console.log(result);
     });
-app.patch('/update/user/status', veryfyToken, async (req,res) => {
-  const {email, status} = req.query
-  const query = {email:email}
+    app.patch("/update/user/status", veryfyToken, async (req, res) => {
+      const { email, status } = req.query;
+      const query = { email: email };
 
-  const updateStatus = {
-    $set: {
-      status: status
-    }
-  }
+      const updateStatus = {
+        $set: {
+          status: status,
+        },
+      };
 
-  const result = await usersCollection.updateOne(query,updateStatus)
-  res.send(result)
-
-})
+      const result = await usersCollection.updateOne(query, updateStatus);
+      res.send(result);
+    });
     // blood request ApI
-    app.post("/requests",veryfyToken, async (req, res) => {
+    app.post("/requests", veryfyToken, async (req, res) => {
       const data = req.body;
 
       data.createdAt = new Date();
