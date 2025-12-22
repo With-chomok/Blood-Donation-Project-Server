@@ -133,6 +133,33 @@ async function run() {
 
       res.send(user);
     });
+app.get("/dashboard/donor-home", async (req, res) => {
+  try {
+    const { email, limit = 3 } = req.query;
+
+    if (!email) {
+      return res.status(400).send({ message: "Email required" });
+    }
+
+    const query = { requesterEmail: email };
+
+    const totalRequest = await requestsCollection.countDocuments(query);
+
+    const recentRequests = await requestsCollection
+      .find(query)
+      .sort({ createdAt: -1 })
+      .limit(Number(limit))
+      .toArray();
+
+    res.send({
+      totalRequest,
+      recentRequests,
+    });
+  } catch (error) {
+    res.status(500).send({ message: "Server error" });
+  }
+});
+
 
     // PayMents REquest API
     app.post("/create-payment", async (req, res) => {
