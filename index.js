@@ -192,7 +192,30 @@ async function run() {
       }
     });
     
+// Search API
+    app.get("/search-requests", async (req, res) => {
+      try {
+        const { bloodGroup, district, upazila } = req.query;
 
+        const query = {};
+
+        if (bloodGroup) {
+          const fixed = bloodGroup.replace(/ /g, "+").trim();
+          query.bloodGroup = fixed;
+        }
+        if (district) {
+          query.district = district;
+        }
+        if (upazila) {
+          query.upazila = upazila;
+        }
+
+        const result = await usersCollection.find(query).toArray();
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: "Search failed" });
+      }
+    });
     // blood request ApI
     app.post("/requests", verifyToken, async (req, res) => {
       const data = req.body;
