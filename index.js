@@ -1,6 +1,7 @@
 require("dotenv").config();
 const { MongoClient, ServerApiVersion } = require("mongodb");
-
+const stripe = require("stripe")(process.env.STRIPE_SEC);
+const crypto = require("crypto");
 const cors = require("cors");
 const express = require("express");
 const port = process.env.PORT || 5000;
@@ -8,7 +9,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const veryfyToken = async (req, res, next) => {
+const verifyToken = async (req, res, next) => {
   const token = req.headers.authorization;
   if (!token) {
     return res.status(401).send({ message: "Unauthorized access" });
@@ -56,21 +57,34 @@ async function run() {
 
     app.post("/users", async (req, res) => {
       const userInfo = req.body;
+      console.log(userInfo);
       userInfo.role = "Donor";
       userInfo.status = "active";
       userInfo.createdAt = new Date();
       const result = await usersCollection.insertOne(userInfo);
       res.send(result);
     });
+    // Profile Update API
+    app.patch("/profile/:email", verifyToken, async (req, res) => {
+      const email = req.params.email;
+      const updatedData = req.body;
+
+      const result = await usersCollection.updateOne(
+        { email },
+        { $set: updatedData }
+      );
+
+      res.send(result);
+    });
 
     //All USer Get API
 
-    app.get("/users", veryfyToken, async (req, res) => {
+    app.get("/users", verifyToken, async (req, res) => {
       const result = await usersCollection.find().toArray();
       res.status(200).send(result);
     });
 
-    app.get("/my-donation-requests", veryfyToken, async (req, res) => {
+    app.get("/my-donation-requests", verifyToken, async (req, res) => {
       const email = req.decodedEmail;
       const query = { requesterEmail: email };
       const size = Number(req.query.size);
@@ -93,7 +107,7 @@ async function run() {
       res.send(result);
       console.log(result);
     });
-    app.patch("/update/user/status", veryfyToken, async (req, res) => {
+    app.patch("/update/user/status", verifyToken, async (req, res) => {
       const { email, status } = req.query;
       const query = { email: email };
 
@@ -106,8 +120,41 @@ async function run() {
       const result = await usersCollection.updateOne(query, updateStatus);
       res.send(result);
     });
+  
+
+    // PayMents REquest API
+    app.post("/create-payment", async (req, res) => {
+      const { donateAmount } = req.body.formData;
+      const info = req.body;
+      console.log(info);
+      const amount = parseInt(donateAmount) * 100;
+
+      const session = await stripe.checkout.sessions.create({
+        line_items: [
+          {
+            price_data: {
+              currency: "usd",
+              unit_amount: amount,
+              product_data: {
+                name: "please Donate",
+              },
+            },
+            quantity: 1,
+          },
+        ],
+        mode: "payment",
+        metadata: {
+          donorName: info?.donerName,
+        },
+        cutomer_email: info?.donerEmail,
+        success_url: `${process.env.SITE_DOMAIN}/payment-success?session_id={CHECKOUT_ID}`,
+        cancel_url: `${process.env.SITE_DOMAIN}/payment-cancelled`,
+      });
+      res.send({ url: session.url });
+    });
+
     // blood request ApI
-    app.post("/requests", veryfyToken, async (req, res) => {
+    app.post("/requests", verifyToken, async (req, res) => {
       const data = req.body;
 
       data.createdAt = new Date();
