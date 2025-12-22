@@ -53,7 +53,7 @@ async function run() {
 
     const usersCollection = database.collection("users");
     const requestsCollection = database.collection("requests");
-    // const bookingsCollection = database.collection("bookings");
+    const paymentsCollection = database.collection("payments");
 
     app.post("/users", async (req, res) => {
       const userInfo = req.body;
@@ -134,12 +134,11 @@ async function run() {
       res.send(user);
     });
 
-  
     // PayMents REquest API
     app.post("/create-payment", async (req, res) => {
       const { donateAmount } = req.body.formData;
       const info = req.body;
-      console.log(info);
+      console.log("INFO IS BELOw",info);
       const amount = parseInt(donateAmount) * 100;
 
       const session = await stripe.checkout.sessions.create({
@@ -160,13 +159,44 @@ async function run() {
           donorName: info?.donerName,
         },
         cutomer_email: info?.donerEmail,
-        success_url: `${process.env.SITE_DOMAIN}/payment-success?session_id={CHECKOUT_ID}`,
+        success_url: `${process.env.SITE_DOMAIN}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${process.env.SITE_DOMAIN}/payment-cancelled`,
       });
       res.send({ url: session.url });
     });
 
-    // blood request ApI
+app.post('/success-payment', async(req ,res)=>{
+  const {session_id} = req.query;
+  const session = await stripe.checkout.sessions.retrieve(
+  session_id
+);
+console.log(session);
+const transationId =  session.payment_intent;
+
+const isPaymentExist = await paymentsCollection.findOne({transationId})
+
+if(isPaymentExist){
+  return
+}
+
+if(session.payment_status == 'paid'){
+  const paymentInfo = {
+    amount: session.amount_total/100,
+    currency: session.currency,
+    donorEmail: session.customer_email,
+    transationId,
+    payment_status: session.payment_status,
+    paidAt: new Date()
+  }
+
+  const result =  await paymentsCollection.insertOne(paymentInfo)
+  return res.send(result)
+}
+
+})
+
+  
+  // blood request ApI
     app.post("/requests", verifyToken, async (req, res) => {
       const data = req.body;
 
