@@ -120,8 +120,8 @@ async function run() {
       const result = await usersCollection.updateOne(query, updateStatus);
       res.send(result);
     });
-  
-  // users Data API
+
+    // users Data API
     app.get("/users/:email", verifyToken, async (req, res) => {
       if (req.decodedEmail !== req.params.email) {
         return res.status(403).send({ message: "Forbidden" });
@@ -138,7 +138,7 @@ async function run() {
     app.post("/create-payment", async (req, res) => {
       const { donateAmount } = req.body.formData;
       const info = req.body;
-      console.log("INFO IS BELOw",info);
+      console.log("INFO IS BELOw", info);
       const amount = parseInt(donateAmount) * 100;
 
       const session = await stripe.checkout.sessions.create({
@@ -165,38 +165,35 @@ async function run() {
       res.send({ url: session.url });
     });
 
-app.post('/success-payment', async(req ,res)=>{
-  const {session_id} = req.query;
-  const session = await stripe.checkout.sessions.retrieve(
-  session_id
-);
-console.log(session);
-const transationId =  session.payment_intent;
+    app.post("/success-payment", async (req, res) => {
+      const { session_id } = req.query;
+      const session = await stripe.checkout.sessions.retrieve(session_id);
+      console.log(session);
+      const transationId = session.payment_intent;
 
-const isPaymentExist = await paymentsCollection.findOne({transationId})
+      const isPaymentExist = await paymentsCollection.findOne({ transationId });
 
-if(isPaymentExist){
-  return
-}
+      if (isPaymentExist) {
+        return;
+      }
 
-if(session.payment_status == 'paid'){
-  const paymentInfo = {
-    amount: session.amount_total/100,
-    currency: session.currency,
-    donorEmail: session.customer_email,
-    transationId,
-    payment_status: session.payment_status,
-    paidAt: new Date()
-  }
+      if (session.payment_status == "paid") {
+        const paymentInfo = {
+          amount: session.amount_total / 100,
+          currency: session.currency,
+          donorEmail: session.customer_email,
+          transationId,
+          payment_status: session.payment_status,
+          paidAt: new Date(),
+        };
 
-  const result =  await paymentsCollection.insertOne(paymentInfo)
-  return res.send(result)
-}
+        const result = await paymentsCollection.insertOne(paymentInfo);
+        return res.send(result);
+      }
+    });
+    
 
-})
-
-  
-  // blood request ApI
+    // blood request ApI
     app.post("/requests", verifyToken, async (req, res) => {
       const data = req.body;
 
