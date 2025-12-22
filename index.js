@@ -121,7 +121,20 @@ async function run() {
       res.send(result);
     });
   
+  // users Data API
+    app.get("/users/:email", verifyToken, async (req, res) => {
+      if (req.decodedEmail !== req.params.email) {
+        return res.status(403).send({ message: "Forbidden" });
+      }
 
+      const user = await usersCollection.findOne({
+        email: req.params.email,
+      });
+
+      res.send(user);
+    });
+
+  
     // PayMents REquest API
     app.post("/create-payment", async (req, res) => {
       const { donateAmount } = req.body.formData;
