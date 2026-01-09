@@ -1,8 +1,8 @@
-require("dotenv").config();
 const { MongoClient, ServerApiVersion } = require("mongodb");
 const stripe = require("stripe")(process.env.STRIPE_SEC);
 const crypto = require("crypto");
 const cors = require("cors");
+require("dotenv").config();
 const express = require("express");
 const port = process.env.PORT || 5000;
 const app = express();
@@ -48,7 +48,7 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    await client.connect();
+    // await client.connect();
     const database = client.db("blood-donate");
 
     const usersCollection = database.collection("users");
@@ -133,34 +133,50 @@ async function run() {
 
       res.send(user);
     });
-app.get("/dashboard/donor-home", async (req, res) => {
-  try {
-    const { email, limit = 3 } = req.query;
+    app.get("/dashboard/donor-home", async (req, res) => {
+      try {
+        const { email, limit = 3 } = req.query;
+        if (!email) return res.status(400).send({ message: "Email required" });
 
-    if (!email) {
-      return res.status(400).send({ message: "Email required" });
-    }
+        const query = { requesterEmail: email };
 
-    const query = { requesterEmail: email };
+        const totalRequest = await requestsCollection.countDocuments(query);
+        const recentRequests = await requestsCollection
+          .find(query)
+          .sort({ createdAt: -1 })
+          .limit(Number(limit))
+          .toArray();
 
-    const totalRequest = await requestsCollection.countDocuments(query);
+        // মোট ইউজার (Donors)
+        const totalUsers = await usersCollection.countDocuments({
+          role: "donor",
+        });
 
-    const recentRequests = await requestsCollection
-      .find(query)
-      .sort({ createdAt: -1 })
-      .limit(Number(limit))
-      .toArray();
+        // মোট ফান্ডিং ক্যালকুলেশন
+        const fundingStats = await paymentsCollection
+          .aggregate([
+            {
+              $group: {
+                _id: null,
+                totalAmount: { $sum: "$donateAmount" }, // এখানে ফিল্ড নেম সাকসেস পেমেন্টের সাথে মিল থাকতে হবে
+              },
+            },
+          ])
+          .toArray();
 
-    res.send({
-      totalRequest,
-      recentRequests,
+        const totalFunding =
+          fundingStats.length > 0 ? fundingStats[0].totalAmount : 0;
+
+        res.send({
+          totalRequest,
+          recentRequests,
+          totalUsers,
+          totalFunding,
+        });
+      } catch (error) {
+        res.status(500).send({ message: "Server error" });
+      }
     });
-  } catch (error) {
-    res.status(500).send({ message: "Server error" });
-  }
-});
-
-
     // PayMents REquest API
     app.post("/create-payment", async (req, res) => {
       const { donateAmount } = req.body.formData;
@@ -195,31 +211,31 @@ app.get("/dashboard/donor-home", async (req, res) => {
     app.post("/success-payment", async (req, res) => {
       const { session_id } = req.query;
       const session = await stripe.checkout.sessions.retrieve(session_id);
-      console.log(session);
+
       const transationId = session.payment_intent;
 
+      // চেক করা পেমেন্ট আগে থেকেই আছে কি না
       const isPaymentExist = await paymentsCollection.findOne({ transationId });
-
       if (isPaymentExist) {
-        return;
+        return res.status(200).send({ message: "Already saved" });
       }
 
       if (session.payment_status == "paid") {
         const paymentInfo = {
-          amount: session.amount_total / 100,
+          // ড্যাশবোর্ড এগ্রিগেশনের সাথে মিল রাখার জন্য donateAmount ব্যবহার করুন
+          donateAmount: session.amount_total / 100,
           currency: session.currency,
-          donorEmail: session.customer_email,
+          donorEmail: session.customer_details?.email || session.customer_email,
           transationId,
           payment_status: session.payment_status,
           paidAt: new Date(),
         };
 
         const result = await paymentsCollection.insertOne(paymentInfo);
-        return res.send(result);
+        res.send(result);
       }
     });
-    
-// Search API
+    // Search API
     app.get("/search-requests", async (req, res) => {
       try {
         const { bloodGroup, district, upazila } = req.query;
@@ -251,7 +267,7 @@ app.get("/dashboard/donor-home", async (req, res) => {
       const result = await requestsCollection.insertOne(data);
       res.send(result);
     });
-    await client.db("admin").command({ ping: 1 });
+    // await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
