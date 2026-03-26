@@ -120,13 +120,31 @@ async function run() {
       const result = await usersCollection.updateOne(query, updateStatus);
       res.send(result);
     });
-    
+    // Get Request 
     app.get("/requests", async (req, res) => {
       try {
         const requests = await requestsCollection.find().toArray();
         res.send(requests);
       } catch (error) {
         res.status(500).send({ message: "Failed to fetch requests" });
+      }
+    });
+    // GET request by ID
+    app.get("/requests/:id", async (req, res) => {
+      const id = req.params.id;
+
+      try {
+        const query = { _id: new ObjectId(id) }; // MongoDB _id দিয়ে query
+        const result = await requestsCollection.findOne(query);
+
+        if (!result) {
+          return res.status(404).send({ message: "Request not found" });
+        }
+
+        res.send(result);
+      } catch (error) {
+        console.log(error);
+        res.status(400).send({ message: "Invalid ID format" });
       }
     });
     // users Data API
