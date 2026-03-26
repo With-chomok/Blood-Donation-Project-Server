@@ -71,7 +71,7 @@ async function run() {
 
       const result = await usersCollection.updateOne(
         { email },
-        { $set: updatedData }
+        { $set: updatedData },
       );
 
       res.send(result);
@@ -120,7 +120,15 @@ async function run() {
       const result = await usersCollection.updateOne(query, updateStatus);
       res.send(result);
     });
-
+    
+    app.get("/requests", async (req, res) => {
+      try {
+        const requests = await requestsCollection.find().toArray();
+        res.send(requests);
+      } catch (error) {
+        res.status(500).send({ message: "Failed to fetch requests" });
+      }
+    });
     // users Data API
     app.get("/users/:email", verifyToken, async (req, res) => {
       if (req.decodedEmail !== req.params.email) {
@@ -267,9 +275,26 @@ async function run() {
       const result = await requestsCollection.insertOne(data);
       res.send(result);
     });
+
+    app.get("/requests/:id", async (req, res) => {
+      const id = req.params.id;
+
+      try {
+        const query = { _id: new ObjectId(id) };
+        const result = await requestsCollection.findOne(query);
+
+        if (!result) {
+          return res.status(404).send({ message: "Request not found" });
+        }
+
+        res.send(result);
+      } catch (error) {
+        res.status(400).send({ message: "Invalid ID format" });
+      }
+    });
     // await client.db("admin").command({ ping: 1 });
     console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
+      "Pinged your deployment. You successfully connected to MongoDB!",
     );
   } finally {
   }
